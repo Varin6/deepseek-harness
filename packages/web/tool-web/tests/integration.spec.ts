@@ -1,10 +1,10 @@
 /**
- * Integration: the real fetch backend (`dsh-web-fetch-http`) + a real search provider
- * (`dsh-web-search-exa`) + the real seam (`dsh-web`) + the model tool (`dsh-tool-web`) + the
- * tool-call timeout policy (`dsh-tool-call-timeout-policy`), exercised through `ctx.tools.execute()` —
- * nothing bypasses the tool registry. Fetch verifies world effects against loopback HTTP with
- * public-address resolution replaced by the fixture address; search uses the real Exa provider
- * with only its network boundary stubbed.
+ * Integration: the real fetch backend (`dsh-web-fetch-http`) + real search providers
+ * (`dsh-web-search-exa`, `dsh-web-search-searxng`) + the real seam (`dsh-web`) + the model tool
+ * (`dsh-tool-web`) + the tool-call timeout policy (`dsh-tool-call-timeout-policy`), exercised
+ * through `ctx.tools.execute()` — nothing bypasses the tool registry. Fetch verifies world
+ * effects against loopback HTTP with public-address resolution replaced by the fixture address;
+ * search uses the real providers with only their network boundary stubbed.
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -17,6 +17,7 @@ import ToolRuntime, { type ToolExecutionResult } from '@deepseek-ai/dsh-tools'
 import WebRuntime from '@deepseek-ai/dsh-web'
 import * as WebFetchLocal from '@deepseek-ai/dsh-web-fetch-http'
 import * as WebSearchExa from '@deepseek-ai/dsh-web-search-exa'
+import * as WebSearchSearxng from '@deepseek-ai/dsh-web-search-searxng'
 import * as ToolWeb from '@deepseek-ai/dsh-tool-web'
 import * as TimeoutPolicy from '@deepseek-ai/dsh-tool-call-timeout-policy'
 import { publicHttpNetwork } from '../../web-fetch-http/src/network.ts'
@@ -104,6 +105,63 @@ describe('web_search integration over the real Exa provider', () => {
     const out = await call('web_search', { queries: ['deepseek-official'] })
     expect(out.isError).toBe(false)
     expect(out.content.map(b => b.type === 'text' ? b.text : '').join('')).toContain('[Result](https://result.test)')
+  })
+})
+
+describe('web_search integration over the real SearXNG provider', () => {
+  let sctx: Context
+  let sfiber: Awaited<ReturnType<Context['plugin']>>
+  let counter = 0
+
+  beforeEach(async () => {
+    sctx = new Context()
+    await sctx.plugin(SystemPrompt)
+    await sctx.plugin(ToolRuntime)
+    await sctx.plugin(WebRuntime, { searchProvider: WebSearchSearxng.SEARXNG_PROVIDER_ID })
+    await sctx.plugin(WebSearchSearxng, { baseURL: 'http://searxng.test:8080' })
+    sfiber = await sctx.plugin(ToolWeb, { fetch: false })
+  })
+
+  afterEach(async () => {
+    await sfiber.dispose()
+    vi.unstubAllGlobals()
+  })
+
+  it('runs web_search end-to-end and formats the provider result', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(
+      JSON.stringify({
+        results: [
+          { url: 'https://result.test', title: 'Result', content: 'an excerpt', publishedAt: '2026-01-01' },
+          { url: 'https://second.test', title: 'Second' },
+        ],
+        answers: ['A direct answer.'],
+      }),
+      { status: 200, headers: { 'content-type': 'application/json' } },
+    )))
+    const out = await sctx.tools.execute({
+      signal: testToolSignal,
+      callId: ToolCallId(`call-sx-${++counter}`),
+      name: 'web_search',
+      arguments: { queries: ['searxng-official'] },
+    })
+    expect(out.isError).toBe(false)
+    const text = out.content.map(b => (b.type === 'text' ? b.text : '')).join('')
+    expect(text).toContain('A direct answer.')
+    expect(text).toContain('[Result](https://result.test)')
+    expect(text).toContain('an excerpt')
+    expect(text).toContain('[Second](https://second.test)')
+  })
+
+  it('surfaces a provider failure as a structured tool error', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('Too Many Requests', { status: 429 })))
+    const out = await sctx.tools.execute({
+      signal: testToolSignal,
+      callId: ToolCallId(`call-sx-${++counter}`),
+      name: 'web_search',
+      arguments: { queries: ['searxng-official'] },
+    })
+    expect(out.isError).toBe(true)
+    expect(out.error?.info?.code).toBe('WEB_PROVIDER_ERROR')
   })
 })
 
