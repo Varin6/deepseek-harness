@@ -4,13 +4,16 @@
  * removal — HMR safety), and the inert node entry.
  */
 import { Context } from '@deepseek-ai/cordis'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { SlotRegistry } from '@deepseek-ai/dsh-client-ui-renderer/client'
 import { stubSettingsScope } from '@deepseek-ai/dsh-client-test-runtime'
 import { apply as applyLocale, inject as localeInject } from '@deepseek-ai/dsh-client-locale/client'
 import { apply, inject } from '../src/client/index.ts'
 import { apply as applyNode } from '../src/index.ts'
+import type { JobListActionInjected } from '../src/client/JobListAction.tsx'
 import { en, NS, zh } from '../src/client/locales.ts'
+
+const SESSION = 'session-1'
 
 /** Slot ledger reader: entry ids currently registered in the header list. */
 function headerEntryIds(ctx: Context): (string | undefined)[] {
@@ -19,8 +22,17 @@ function headerEntryIds(ctx: Context): (string | undefined)[] {
     .map(entry => entry.options.id)
 }
 
+/** The registered entry's inject factory, addressed by session identity. */
+function injectFactory(ctx: Context): (sessionId: string) => JobListActionInjected {
+  const entry = ctx.slots.entries('conversation.session.header.actions')[0]
+  if (entry?.inject === undefined) throw new Error('expected the job-list entry to expose an inject face')
+  return entry.inject as unknown as (sessionId: string) => JobListActionInjected
+}
+
 /** Boot the browser half over a real slot tree that declares the header list. */
-async function bench(): Promise<{ ctx: Context; fiber: ReturnType<Context['plugin']> }> {
+async function bench(
+  sessions: object = {},
+): Promise<{ ctx: Context; fiber: ReturnType<Context['plugin']> }> {
   const ctx = new Context()
   await ctx.plugin(SlotRegistry).await()
   ctx.slots.register({
@@ -29,7 +41,7 @@ async function bench(): Promise<{ ctx: Context; fiber: ReturnType<Context['plugi
       'conversation.session.header.actions': { kind: 'list', scope: 'session' },
     },
   } as never, () => null)
-  ctx.provide('sessions', {})
+  ctx.provide('sessions', sessions as never)
   // The locale plugin binds a settings scope, which reads the connection handle
   // and the forwarded-event port.
   ctx.provide('connection', { api: { settings: {} }, isLoopback: false } as never)
@@ -55,6 +67,45 @@ describe('ui-job browser half', () => {
     expect(headerEntryIds(ctx)).toContain('job-list')
     await fiber.dispose()
     expect(headerEntryIds(ctx)).not.toContain('job-list')
+  })
+
+  it('routes an injected stop through the addressed session face', async () => {
+    const killJob = vi.fn(() => Promise.resolve({ ok: true, value: { result: 'requested' as const } }))
+    const sessions = {
+      binding: (id: string) => (id === SESSION ? { session: { killJob } } : undefined),
+    }
+    const { ctx, fiber } = await bench(sessions)
+    try {
+      const stop = injectFactory(ctx)(SESSION).killJob
+      expect(stop).toBeDefined()
+      stop?.('bash-1')
+      expect(killJob).toHaveBeenCalledTimes(1)
+      expect(killJob).toHaveBeenCalledWith('bash-1')
+
+      // A session without a binding gets a no-op, not a throw.
+      const unbound = injectFactory(ctx)('ghost').killJob
+      expect(() => unbound?.('bash-1')).not.toThrow()
+      expect(killJob).toHaveBeenCalledTimes(1)
+    } finally {
+      await fiber.dispose()
+    }
+  })
+
+  it('swallows a stop failure: the session promptError carries it, the row does not throw', async () => {
+    const killJob = vi.fn(() => Promise.reject(new Error('wire down')))
+    const sessions = {
+      binding: (id: string) => (id === SESSION ? { session: { killJob } } : undefined),
+    }
+    const { ctx, fiber } = await bench(sessions)
+    try {
+      expect(() => injectFactory(ctx)(SESSION).killJob?.('bash-1')).not.toThrow()
+      await vi.waitFor(() => { expect(killJob).toHaveBeenCalledTimes(1) })
+      // Let the rejection settle through the documented catch.
+      await Promise.resolve()
+      await Promise.resolve()
+    } finally {
+      await fiber.dispose()
+    }
   })
 
   it('registers both dictionaries under its own namespace and releases them with the fiber', async () => {

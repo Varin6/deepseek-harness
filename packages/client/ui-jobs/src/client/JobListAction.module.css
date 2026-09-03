@@ -95,6 +95,49 @@
   line-height: 18px;
 }
 
+/* The producer-recorded tree-root pid of a live process; data, so it keeps
+   the monospace face and a neutral fill like the kind tag. */
+.pid {
+  flex: none;
+  padding: 0 6px;
+  border-radius: 5px;
+  background: var(--dsw-alias-fill-l2);
+  color: var(--dsw-alias-label-secondary);
+  font-family: var(--dsw-font-mono);
+  font-size: 11px;
+  line-height: 18px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Row-level stop control for live jobs; the icon carries the whole meaning,
+   so the button is square and the accessible name rides aria-label. */
+.kill {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--dsw-alias-label-tertiary);
+  cursor: pointer;
+}
+
+.kill:hover:not(:disabled),
+.kill:focus-visible:not(:disabled) {
+  background: var(--dsw-alias-fill-l2);
+  color: var(--dsw-alias-label-primary);
+}
+
+.kill:disabled {
+  color: var(--dsw-alias-label-tertiary);
+  cursor: default;
+  opacity: 0.5;
+}
+
 .label {
   flex: 1;
   min-width: 0;

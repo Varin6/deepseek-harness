@@ -88,7 +88,7 @@ const SENTENCE_MODEL_EXPERIENCE: Readonly<Record<string, SentenceContract>> = {
   'packages/client/ui-chat': { kind: 'none', reason: 'Browser-side Chat presentation; registers nothing model-facing.' },
   'packages/client/ui-message-feedback': { kind: 'none', reason: 'Browser-side controls over the message-feedback sidecar; ratings and notes never enter the Session log, model context, or telemetry.' },
   'packages/client/ui-tool': { kind: 'none', reason: 'Browser-side Tool presentation layer; renders logged calls without changing model context.' },
-  'packages/client/ui-jobs': { kind: 'none', reason: 'Browser-side read-only projection of ctx.jobs records; dsh-tool-jobs owns the model-facing behavior.' },
+  'packages/client/ui-jobs': { kind: 'none', reason: 'Browser-side projection of ctx.jobs records for humans; the stop button routes through session.killJob, whose model notice dsh-api-session-controller owns.' },
   'packages/client/ui-schedule': { kind: 'none', reason: 'Browser-side read-only projection of active Schedule records; dsh-schedule owns the model-facing tools and delivery.' },
   'packages/client/ui-workflow-run': { kind: 'none', reason: 'Browser-side UI plugin layer; renders durable workflow records without changing model context.' },
   'packages/client/ui-input-trigger': { kind: 'none', reason: 'Browser-side UI plugin layer; registers nothing model-facing.' },
@@ -165,7 +165,6 @@ const SENTENCE_MODEL_EXPERIENCE: Readonly<Record<string, SentenceContract>> = {
   'packages/test-support/llm-mock-server': { kind: 'none', reason: 'The test server substitutes provider wire behavior without invoking a real model.' },
   'packages/test-support/llm-replay': { kind: 'none', reason: 'The keyless adapter invokes no provider model.' },
   'packages/api/gateway': { kind: 'none', reason: 'Remote dispatch infrastructure; invoked business methods own any model-visible effect.' },
-  'packages/api/session-controller': { kind: 'none', reason: 'Session API and transport owner; invoked Agent commands own any model-visible effect.' },
   'packages/api/settings-controller': { kind: 'none', reason: 'Configuration-surface API owner; it registers no prompt, tool, or session event.' },
   'packages/api/workspace-controller': { kind: 'none', reason: 'Workspace API and state projection owner; it registers no prompt, tool, or session event.' },
   'packages/typert/protocol': { kind: 'none', reason: 'Compiler-independent Remote protocol declarations; registers nothing model-facing.' },
@@ -182,6 +181,7 @@ const SENTENCE_MODEL_EXPERIENCE: Readonly<Record<string, SentenceContract>> = {
   'packages/web/web': { kind: 'indirect', reason: 'The provider registry delegates model rendering to dsh-tool-web.' },
   'packages/web/web-fetch-http': { kind: 'indirect', reason: 'The provider backend delegates model rendering to dsh-tool-web.' },
   'packages/web/web-search-exa': { kind: 'indirect', reason: 'The provider backend delegates model rendering to dsh-tool-web.' },
+  'packages/web/web-search-searxng': { kind: 'indirect', reason: 'The provider backend delegates model rendering to dsh-tool-web.' },
   'packages/workflow/workflow': { kind: 'indirect', reason: 'The service delegates parent and child model rendering to its consumer and engine.' },
 }
 

@@ -4,6 +4,7 @@ import type { Context } from '@deepseek-ai/cordis'
 import { randomUUID } from '@deepseek-ai/dsh-util-crypto'
 import type { AttachmentIdType, ImageAttachmentRef } from '@deepseek-ai/dsh-attachment'
 import type { SubagentAddress } from '@deepseek-ai/dsh-subagent/client'
+import { JobId } from '@deepseek-ai/dsh-jobs/brand'
 import type { MessageId } from '@deepseek-ai/dsh-llm/brand'
 import { SessionLogOffset, SessionSeq, type SessionId } from '@deepseek-ai/dsh-session/types'
 import { SessionEventStream } from '../transport.ts'
@@ -318,6 +319,23 @@ export class Session implements SessionFace {
         'continuable',
       )
       : await this.remote.session.cancel({ sessionId: this.sessionId })
+    if (!result.ok) {
+      this.promptError = { op: 'stop', error: result.error }
+      this.notifier.markDirty()
+    }
+    return result
+  }
+
+  /**
+   * Stop one live background job visible in this session; failures land in
+   * promptError (the stop error-strip slot). The addressed session id is the
+   * job owner for both ordinary and subagent views, so no parent-addressed
+   * route is needed.
+   * @param jobId - registry-issued job id from the session's job list.
+   * @returns the registry outcome, or the business/transport error.
+   */
+  async killJob(jobId: string): Promise<RemoteResult<{ result: 'requested' | 'already-finished' }>> {
+    const result = await this.remote.session.killJob({ sessionId: this.sessionId, jobId: JobId(jobId) })
     if (!result.ok) {
       this.promptError = { op: 'stop', error: result.error }
       this.notifier.markDirty()

@@ -108,6 +108,14 @@ export interface ISession {
    */
   cancel(): Promise<RemoteResult<{ accepted: true }>>
   /**
+   * Stop one live background job visible in this session. The job settles
+   * `killed` once its work actually stops, and the session's model is told
+   * through its inbox.
+   * @param jobId - registry-issued job id from the session's job list.
+   * @returns the registry outcome, or the business/transport error.
+   */
+  killJob(jobId: string): Promise<RemoteResult<{ result: 'requested' | 'already-finished' }>>
+  /**
    * Rename this session (explicit user title; pins it against automatic
    * regeneration).
    * @param title - raw title text (the host normalizes acceptance).

@@ -1,14 +1,22 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import type { SessionJob as JobView } from '@deepseek-ai/dsh-api-session-controller/types'
-import { IconChevronDownOutline14, StateDot, useDismissOnOutsidePointer, type StateDotState } from '@deepseek-ai/dsh-client-ui-primitives'
+import {
+  IconChevronDownOutline14, IconStopFill16, StateDot, useDismissOnOutsidePointer, type StateDotState,
+} from '@deepseek-ai/dsh-client-ui-primitives'
 import type { PropsLocale, PropsRuntime, TranslateNS } from '@deepseek-ai/dsh-client-ui-slots'
 import { NS } from './locales.ts'
 import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
 import css from './JobListAction.module.css'
 
+/** Plain data and callbacks this entry's registration injects over the standard shares. */
+export interface JobListActionInjected {
+  /** Stop one live job of this session through the session face; absent when the face is unavailable. */
+  killJob?: (jobId: string) => void
+}
+
 /** Full props for the session-header background-job action. */
 export type JobListActionProps =
-  PropsRuntime<'conversation.session.header.actions'> & PropsLocale<typeof NS>
+  PropsRuntime<'conversation.session.header.actions'> & PropsLocale<typeof NS> & JobListActionInjected
 
 /** Stable empty list so a session with no jobs keeps one array identity. */
 const NO_TASKS: readonly JobView[] = []
@@ -16,6 +24,12 @@ const NO_TASKS: readonly JobView[] = []
 /** A job the registry still holds open, and whose duration therefore ticks. */
 function isLive(job: JobView): boolean {
   return job.status === 'running' || job.status === 'stopping'
+}
+
+/** The spawned tree-root pid the producer recorded, when it supplied one. */
+function pidOf(job: JobView): number | undefined {
+  const pid = job.meta?.pid
+  return typeof pid === 'number' ? pid : undefined
 }
 
 /** Closed-union exhaustiveness fence for the wire status set. */
@@ -88,10 +102,13 @@ function ordered(jobs: readonly JobView[]): JobView[] {
  * Session-header entry point for this session's background jobs. It renders
  * nothing at all until the session has at least one job, so an ordinary
  * conversation never grows a control for a capability it is not using.
- * @param props - runtime slot currency plus the namespace translator.
+ * Live rows show the spawned tree-root pid when the producer recorded it, and
+ * a stop button that routes through the session face (the Host tells the
+ * model, so a user stop is never silent).
+ * @param props - runtime slot currency, the namespace translator, and the stop callback.
  * @returns the trigger and its popover list, or null when there is nothing to show.
  */
-export function JobListAction({ sessionId, useSessions, t }: JobListActionProps) {
+export function JobListAction({ sessionId, useSessions, t, killJob }: JobListActionProps) {
   const jobs = useSessions(state => state.jobsBySession[sessionId]) ?? NO_TASKS
   const [open, setOpen] = useState(false)
   const [now, setNow] = useState(() => Date.now())
@@ -157,6 +174,7 @@ export function JobListAction({ sessionId, useSessions, t }: JobListActionProps)
           <ul className={css.menu} aria-label={t('list.aria')}>
             {rows.map((job) => {
               const live = isLive(job)
+              const pid = live ? pidOf(job) : undefined
               const elapsed = live ? now - job.startedAt : (job.finishedAt ?? job.startedAt) - job.startedAt
               const duration = formatDuration(elapsed, t)
               const status = statusLabel(job.status, t)
@@ -164,6 +182,11 @@ export function JobListAction({ sessionId, useSessions, t }: JobListActionProps)
                 <li key={job.id} className={live ? css.row : `${css.row} ${css.rowSettled}`}>
                   <StateDot state={dotState(job.status)} className={css.rowDot} />
                   <span className={css.kind}>{job.kind}</span>
+                  {pid === undefined
+                    ? null
+                    : (
+                      <span className={css.pid} title={t('pid.label', { pid })}>#{pid}</span>
+                    )}
                   <span className={css.label} title={job.label}>{job.label}</span>
                   <span className={css.status} title={job.detail ?? status}>{job.detail ?? status}</span>
                   <span
@@ -172,6 +195,20 @@ export function JobListAction({ sessionId, useSessions, t }: JobListActionProps)
                   >
                     {duration}
                   </span>
+                  {live
+                    ? (
+                      <button
+                        type="button"
+                        className={css.kill}
+                        aria-label={t('kill.label')}
+                        title={t('kill.label')}
+                        disabled={job.status === 'stopping' || killJob === undefined}
+                        onClick={() => { killJob?.(job.id) }}
+                      >
+                        <IconStopFill16 className={css.killIcon} />
+                      </button>
+                    )
+                    : null}
                 </li>
               )
             })}

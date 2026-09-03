@@ -19,7 +19,7 @@ There is also a provider-selection question. Existing `tool-bash` and `tool-fs` 
 Web access is a first-class capability seam following [the capability-seam Agent Note](2026-06-13-capability-seams.md):
 
 1. `@deepseek-ai/dsh-web` (`packages/web/web`) owns `ctx.web`, provider registration, provider selection, shared request/result vocabulary, and web-specific errors.
-2. Provider packages implement concrete backends and register capabilities with `ctx.web`, for example `@deepseek-ai/dsh-web-search-exa`, `@deepseek-ai/dsh-web-search-perplexity`, `@deepseek-ai/dsh-web-search-deepseek`, and `@deepseek-ai/dsh-web-fetch-http`.
+2. Provider packages implement concrete backends and register capabilities with `ctx.web`, for example `@deepseek-ai/dsh-web-search-exa`, `@deepseek-ai/dsh-web-search-perplexity`, `@deepseek-ai/dsh-web-search-deepseek`, `@deepseek-ai/dsh-web-search-searxng`, and `@deepseek-ai/dsh-web-fetch-http`.
 3. `@deepseek-ai/dsh-tool-web` (`packages/web/tool-web`) owns the model-facing `web_search` and `web_fetch` tool schemas, prompt sections, argument validation, result formatting, and tool-owned presentation over `ctx.web`.
 
 Providers do not register tools. Providers register capabilities. `dsh-tool-web` is the only owner of model-facing names, descriptions, prompt guidance, JSON schemas, and presentation.
@@ -40,17 +40,16 @@ The seam deliberately exposes no observation surface — no registry-change even
 
 The three-package Service Definition / Service Provider / Consumer split follows bash and filesystem, but the *interface* package is closer to the LLM seam. `LlmRuntime` (`packages/llm/llm/src/index.ts`) is a name-keyed provider registry: `registerAdapter(models, adapter)` stores adapters in a `Map`, returns a disposer, throws `DUPLICATE_ADAPTER` on duplicate keys, and throws `NO_ADAPTER` at resolution time. `ctx.web` follows that registry shape, but has two capability kinds and a richer selection policy (a configured provider id, or auto-select when exactly one usable provider is registered), so the `WebError` an execution throws can explain why a search or fetch capability cannot run.
 
-The dependency direction mirrors bash and filesystem:
+The dependency direction mirrors bash and filesystem; every listed package depends on `@deepseek-ai/dsh-web`:
 
 ```text
-@deepseek-ai/dsh-tool-web  --depends on-->  @deepseek-ai/dsh-web  <--depends on--  @deepseek-ai/dsh-web-search-exa
-        consumer                                 interface                       implementation
-                                                                 <--depends on--  @deepseek-ai/dsh-web-search-perplexity
-                                                                                  implementation
-                                                                 <--depends on--  @deepseek-ai/dsh-web-search-deepseek
-                                                                                  implementation
-                                                                 <--depends on--  @deepseek-ai/dsh-web-fetch-http
-                                                                                  implementation
+@deepseek-ai/dsh-web  (interface)
+<-- @deepseek-ai/dsh-tool-web              (consumer)
+<-- @deepseek-ai/dsh-web-search-exa        (implementation)
+<-- @deepseek-ai/dsh-web-search-perplexity (implementation)
+<-- @deepseek-ai/dsh-web-search-deepseek   (implementation)
+<-- @deepseek-ai/dsh-web-search-searxng    (implementation)
+<-- @deepseek-ai/dsh-web-fetch-http        (implementation)
 ```
 
 At runtime, provider packages register capabilities with `ctx.web`; `tool-web` registers stable tools with `ctx.tools` and executes through the seam:
@@ -60,6 +59,7 @@ flowchart LR
   exa["@deepseek-ai/dsh-web-search-exa"] -->|registerSearchProvider| web["@deepseek-ai/dsh-web / ctx.web"]
   perplexity["@deepseek-ai/dsh-web-search-perplexity"] -->|registerSearchProvider| web
   deepseek["@deepseek-ai/dsh-web-search-deepseek"] -->|registerSearchProvider| web
+  searxng["@deepseek-ai/dsh-web-search-searxng"] -->|registerSearchProvider| web
   fetchLocal["@deepseek-ai/dsh-web-fetch-http"] -->|registerFetchProvider| web
   toolWeb["@deepseek-ai/dsh-tool-web"] -->|search/fetch| web
   toolWeb -->|ctx.tools.register| webSearch["tool: web_search"]

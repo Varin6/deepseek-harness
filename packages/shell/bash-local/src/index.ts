@@ -272,6 +272,7 @@ export class LocalBashExecutor extends ShellExecutor {
     let stderrOffset = 0
     const proc: ShellProcess = {
       status: 'running',
+      ...running.pid > 0 ? { pid: running.pid } : {},
       exitCode: null,
       signal: null,
       done: running.done.then((outcome) => {

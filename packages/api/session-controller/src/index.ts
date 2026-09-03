@@ -34,6 +34,8 @@ import type {
   SessionFollowRequest,
   SessionForkRequest,
   SessionForkValue,
+  SessionJobKillRequest,
+  SessionJobKillValue,
   SessionListRequest,
   SessionListValue,
   SessionOpenWorkspacePathRequest,
@@ -357,6 +359,17 @@ export class SessionController extends TypertRemoteService {
   @Remote('cancel')
   cancel(request: SessionCancelRequest): SessionCancelValue {
     return this.commands.cancel(request)
+  }
+
+  /**
+   * Stop one live background job visible in the addressed Session. The model
+   * is told through its inbox, so a user-initiated stop is never silent.
+   * @param request - Session and registry-issued job identity.
+   * @returns the registry outcome for the kill request.
+   */
+  @Remote('killJob')
+  killJob(request: SessionJobKillRequest): SessionJobKillValue {
+    return this.commands.killJob(request)
   }
 
   /**

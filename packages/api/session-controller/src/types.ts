@@ -347,6 +347,20 @@ export interface SessionCancelValue {
   readonly accepted: true
 }
 
+/** Request to stop one live background job owned by a Session. */
+export interface SessionJobKillRequest {
+  readonly sessionId: SessionId
+  readonly jobId: JobId
+}
+
+/**
+ * Receipt after a job-kill request reaches the registry: `requested` when a
+ * live job was cancelled, `already-finished` when it had settled first.
+ */
+export interface SessionJobKillValue {
+  readonly result: 'requested' | 'already-finished'
+}
+
 /** Request to open one path prepared by a Session-aware caller on the Host desktop. */
 export interface SessionOpenWorkspacePathRequest {
   /** Path after best-effort Session workspace resolution, in Host filesystem syntax. */
@@ -484,6 +498,8 @@ export interface SessionJob {
   readonly id: JobId
   readonly kind: string
   readonly label: string
+  /** Producer-declared JSON-safe facts (e.g. the spawned process's tree-root pid), present iff the producer supplied them. */
+  readonly meta?: Readonly<Record<string, JsonValue>>
   readonly status: 'running' | 'stopping' | 'completed' | 'killed' | 'failed'
   readonly detail?: string
   readonly startedAt: number

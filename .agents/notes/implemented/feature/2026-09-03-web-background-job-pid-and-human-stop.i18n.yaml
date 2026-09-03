@@ -1,0 +1,6 @@
+# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
+# side as of the last confirmed-consistent state. Both languages carry equal authority;
+# after editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write .agents/notes/implemented/feature/2026-09-03-web-background-job-pid-and-human-stop.md
+2026-09-03-web-background-job-pid-and-human-stop.md: 04f9072fcb00376daabf962e11797b9ba4537e17
+2026-09-03-web-background-job-pid-and-human-stop.zh.md: 20ae43910d02b033df47b8e21b61a29216e68249

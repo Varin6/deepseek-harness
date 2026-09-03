@@ -295,6 +295,22 @@ describe('LocalBashExecutor.start (background process handles)', () => {
     await expect(proc.done).resolves.toBeUndefined()
     expect(proc.status).toBe('killed')
     expect(proc.readOutput().delta).toContain('spawn failed:')
+    // No tree was born, so the handle carries no pid.
+    expect(proc.pid).toBeUndefined()
+  })
+
+  it('a background handle carries the spawned tree-root pid', async () => {
+    const { bash } = await setup()
+    const proc = bash.start(bash.resolve({ command: 'echo $$; sleep 60' }))
+    try {
+      const printed = Number((await readUntil(proc, '\n')).trim())
+      expect(Number.isInteger(printed) && printed > 0).toBe(true)
+      // $$ is the tree-root bash itself, the identity kill() terminates.
+      expect(proc.pid).toBe(printed)
+    } finally {
+      proc.kill()
+      await proc.done
+    }
   })
 })
 
@@ -311,6 +327,7 @@ describe('process lifecycle ownership (the subprocess service, not the executor)
     const proc = bash.start(bash.resolve({ command: 'echo $$; sleep 60' }))
     const pid = Number((await readUntil(proc, '\n')).trim())
     expect(Number.isInteger(pid) && pid > 0).toBe(true)
+    expect(proc.pid).toBe(pid)
 
     // Executor reload/disposal leaves background work running — the
     // handle stays live and readable, mirroring the job runtime's

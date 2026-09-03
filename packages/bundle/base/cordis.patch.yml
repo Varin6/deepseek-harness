@@ -439,11 +439,14 @@
     # search resolves the same DEEPSEEK_API_KEY
     # credential the Models page manages for chat, at each search; its Messages
     # endpoint is separate from the chat-completions endpoint, so it takes its own
-    # base-URL override. Anonymous fetch accepts only public HTTP(S) destinations,
-    # resolves and validates every destination, and pins every actual connection.
-    # Search is a full auxiliary model request with server-side retrieval, so this
-    # shipped DeepSeek route gets 60s while the provider-neutral tool default
-    # remains 30s.
+    # base-URL override. SearXNG search needs no credential: it ships disabled
+    # because it answers only from a SearXNG instance the deployment runs, and a
+    # deployment with one enables the row and pins web.searchProvider to searxng
+    # in a later patch layer. Anonymous fetch accepts only public HTTP(S)
+    # destinations, resolves and validates every destination, and pins every actual
+    # connection. Search is a full auxiliary model request with server-side
+    # retrieval, so this shipped DeepSeek route gets 60s while the provider-neutral
+    # tool default remains 30s.
     - id: web
       name: '@deepseek-ai/dsh-web'
       config:
@@ -454,6 +457,13 @@
       name: '@deepseek-ai/dsh-web-search-deepseek'
       config:
         apiKeyEnv: DEEPSEEK_API_KEY
+
+    # Optional keyless search backend: a self-hosted SearXNG instance with the
+    # `json` format enabled. Its endpoint falls back to $SEARXNG_BASE_URL,
+    # defaulting to the local docker quickstart port.
+    - id: web-search-searxng
+      name: '@deepseek-ai/dsh-web-search-searxng'
+      disabled: true
 
     - id: web-fetch-http
       name: '@deepseek-ai/dsh-web-fetch-http'

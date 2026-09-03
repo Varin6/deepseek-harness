@@ -33,6 +33,8 @@ import type {
   SessionForkValue,
   SessionFollowFrame,
   SessionFollowRequest,
+  SessionJobKillRequest,
+  SessionJobKillValue,
   SessionListRequest,
   SessionListValue,
   SessionOpenWorkspacePathRequest,
@@ -65,6 +67,7 @@ export interface TestSessionRemote {
   attachment(request: SessionAttachmentRequest): Promise<RemoteResult<SessionAttachmentValue>>
   updateQueue(request: SessionUpdateQueueRequest): Promise<RemoteResult<SessionUpdateQueueValue>>
   cancel(request: SessionCancelRequest): Promise<RemoteResult<SessionCancelValue>>
+  killJob(request: SessionJobKillRequest): Promise<RemoteResult<SessionJobKillValue>>
   openWorkspacePath(
     request: SessionOpenWorkspacePathRequest,
     signal?: AbortSignal,
@@ -271,6 +274,7 @@ export function createSessionTestRemote(
     attachment: request => remoteResult(() => direct.attachment(request)),
     updateQueue: request => remoteResult(() => direct.updateQueue(request)),
     cancel: request => remoteResult(() => direct.cancel(request)),
+    killJob: request => remoteResult(() => direct.killJob(request)),
     openWorkspacePath: (request, signal = new AbortController().signal) => remoteResult(
       () => direct.openWorkspacePath(request, signal),
       signal,

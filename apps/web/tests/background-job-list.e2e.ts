@@ -27,6 +27,15 @@ const SEED_ID = 'background-job-list-web-e2e'
 const COMMAND = 'sleep 45'
 
 /**
+ * Collapse the spawned process's volatile tree-root pid (the row's `#<pid>`
+ * chip). Scoped to this region on purpose: the same shape is a stable request
+ * counter elsewhere in the web goldens and must not be tokenized globally.
+ */
+function redactPid(snapshot: string): string {
+  return snapshot.replace(/#\d+/g, '{{pid}}')
+}
+
+/**
  * Wait for opening a session to publish its live Agent.
  * @param scaffold - the booted web scaffold.
  * @param sessionId - the opened session's identity.
@@ -42,7 +51,10 @@ async function liveAgent(scaffold: WebScaffold, sessionId: SessionId): Promise<A
   }
 }
 
-describe.skipIf(MODE === 'record')('web e2e: background job list', () => {
+// The standard preset gates the bash stack off win32 (`tool-bash` disabled
+// there), so the scenario only composes on POSIX; the CI Linux pool owns it,
+// matching the win32 bash-family spec exclusions.
+describe.skipIf(MODE === 'record' || process.platform === 'win32')('web e2e: background job list', () => {
   let scaffold: WebScaffold
   let browser: Browser
   let page: Page
@@ -102,7 +114,7 @@ describe.skipIf(MODE === 'record')('web e2e: background job list', () => {
     await expect.poll(() => row.textContent()).toContain(COMMAND)
 
     const snapshot = await captureStableAria(page, '[class*="menu"]', scaffold.workspaceCwd)
-    await compareOrRefreshGolden(RUNNING_EXPECTED, snapshot, MODE)
+    await compareOrRefreshGolden(RUNNING_EXPECTED, redactPid(snapshot), MODE)
     expect(tripwire.pageErrors).toEqual([])
     expect(tripwire.warnings).toEqual([])
   }, 60_000)

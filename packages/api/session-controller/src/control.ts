@@ -208,6 +208,7 @@ function jobView(job: JobSnapshot): SessionJob {
     id: job.id,
     kind: job.kind,
     label: job.label,
+    ...(job.meta === undefined ? {} : { meta: job.meta }),
     status: job.status,
     ...(job.detail === undefined ? {} : { detail: job.detail }),
     startedAt: job.startedAt,

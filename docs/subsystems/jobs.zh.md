@@ -80,6 +80,12 @@ interface JobHooks {
    * job has one consuming cursor.
    */
   readOutput?(): string
+  /**
+   * JSON-safe producer facts captured at start, e.g. the spawned process's
+   * tree-root pid. The registry copies them into every snapshot of the job;
+   * the producer must not mutate the record after supplying it.
+   */
+  meta?: Readonly<Record<string, JsonValue>>
 }
 ```
 
@@ -111,6 +117,11 @@ interface JobSnapshot {
   kind: JobKind
   /** The producer-supplied one-line label. */
   label: string
+  /**
+   * Producer-declared JSON-safe facts (e.g. the spawned process's tree-root
+   * pid), present iff the producer supplied them; a fresh copy per snapshot.
+   */
+  meta?: Readonly<Record<string, JsonValue>>
   /** Producer-owned cap for complete model-facing notices and output reads. */
   outputLimitBytes?: number
   /**

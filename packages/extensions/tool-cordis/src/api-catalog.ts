@@ -1426,6 +1426,12 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         returns: 'acknowledgement that cancellation was requested.',
       },
       {
+        signature: '@Remote(\'killJob\') killJob(request: SessionJobKillRequest): SessionJobKillValue',
+        description: 'Stop one live background job visible in the addressed Session. The model is told through its inbox, so a user-initiated stop is never silent.',
+        parameters: [{ name: 'request', description: 'Session and registry-issued job identity.' }],
+        returns: 'the registry outcome for the kill request.',
+      },
+      {
         signature: '@Remote(\'page\') page(request: SessionPageRequest, signal: AbortSignal): Promise<SessionPage>',
         description: 'Read one cold-safe, message-aligned Session history page.',
         parameters: [{ name: 'request', description: 'durable address, backward cursor, and page budget.' }, { name: 'signal', description: 'cancellation for persistence reads.' }],
@@ -4196,7 +4202,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'JobHooks',
-    declaration: 'export interface JobHooks {\n    cancel(reason?: string): void;\n    done: Promise<JobOutcome>;\n    readOutput?(): string;\n}',
+    declaration: 'export interface JobHooks {\n    cancel(reason?: string): void;\n    done: Promise<JobOutcome>;\n    readOutput?(): string;\n    meta?: Readonly<Record<string, JsonValue>>;\n}',
   },
   {
     name: 'JobId',
@@ -4224,7 +4230,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'JobSnapshot',
-    declaration: 'export interface JobSnapshot {\n    id: JobId;\n    kind: JobKind;\n    label: string;\n    outputLimitBytes?: number;\n    ownerSession?: SessionId;\n    status: JobStatus;\n    detail?: string;\n    startedAt: number;\n    finishedAt?: number;\n    reported: boolean;\n}',
+    declaration: 'export interface JobSnapshot {\n    id: JobId;\n    kind: JobKind;\n    label: string;\n    meta?: Readonly<Record<string, JsonValue>>;\n    outputLimitBytes?: number;\n    ownerSession?: SessionId;\n    status: JobStatus;\n    detail?: string;\n    startedAt: number;\n    finishedAt?: number;\n    reported: boolean;\n}',
   },
   {
     name: 'JobStart',
@@ -4952,7 +4958,15 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'SessionJob',
-    declaration: 'export interface SessionJob {\n    readonly id: JobId;\n    readonly kind: string;\n    readonly label: string;\n    readonly status: \'running\' | \'stopping\' | \'completed\' | \'killed\' | \'failed\';\n    readonly detail?: string;\n    readonly startedAt: number;\n    readonly finishedAt?: number;\n}',
+    declaration: 'export interface SessionJob {\n    readonly id: JobId;\n    readonly kind: string;\n    readonly label: string;\n    readonly meta?: Readonly<Record<string, JsonValue>>;\n    readonly status: \'running\' | \'stopping\' | \'completed\' | \'killed\' | \'failed\';\n    readonly detail?: string;\n    readonly startedAt: number;\n    readonly finishedAt?: number;\n}',
+  },
+  {
+    name: 'SessionJobKillRequest',
+    declaration: 'export interface SessionJobKillRequest {\n    readonly sessionId: SessionId;\n    readonly jobId: JobId;\n}',
+  },
+  {
+    name: 'SessionJobKillValue',
+    declaration: 'export interface SessionJobKillValue {\n    readonly result: \'requested\' | \'already-finished\';\n}',
   },
   {
     name: 'SessionLineageNode',
@@ -5300,7 +5314,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'ShellProcess',
-    declaration: 'export interface ShellProcess {\n    status: ShellProcessStatus;\n    exitCode: number | null;\n    signal: NodeJS.Signals | null;\n    readonly done: Promise<void>;\n    sandbox?: ShellSandboxInfo;\n    readOutput(): ShellProcessRead;\n    kill(): boolean;\n}',
+    declaration: 'export interface ShellProcess {\n    status: ShellProcessStatus;\n    readonly pid?: number;\n    exitCode: number | null;\n    signal: NodeJS.Signals | null;\n    readonly done: Promise<void>;\n    sandbox?: ShellSandboxInfo;\n    readOutput(): ShellProcessRead;\n    kill(): boolean;\n}',
   },
   {
     name: 'ShellProcessRead',

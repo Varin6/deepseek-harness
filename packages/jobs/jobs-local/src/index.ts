@@ -41,6 +41,8 @@ interface TrackedTask {
   id: JobId
   kind: JobKind
   label: string
+  /** Producer-declared JSON-safe facts, copied into every snapshot. */
+  meta: JobSnapshot['meta']
   outputLimitBytes: number | undefined
   /** Exact lifecycle owner; session-id authorization is derived from it. */
   owner: Agent | undefined
@@ -158,6 +160,7 @@ export class LocalJobRegistry extends JobRegistry {
       id,
       kind: spec.kind,
       label: spec.label,
+      meta: hooks.meta,
       outputLimitBytes: spec.outputLimitBytes,
       owner: spec.owner,
       cancel: hooks.cancel.bind(hooks),
@@ -366,6 +369,7 @@ export class LocalJobRegistry extends JobRegistry {
       id: job.id,
       kind: job.kind,
       label: job.label,
+      ...job.meta !== undefined ? { meta: { ...job.meta } } : {},
       ...job.outputLimitBytes !== undefined ? { outputLimitBytes: job.outputLimitBytes } : {},
       ...ownerSession !== undefined ? { ownerSession } : {},
       status: job.status,
