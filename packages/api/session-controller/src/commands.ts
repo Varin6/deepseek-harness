@@ -7,7 +7,7 @@ import type { Agent, ModelSelection as AgentModelSelection } from '@deepseek-ai/
 import { AttachmentError, admitPromptContent } from '@deepseek-ai/dsh-attachment'
 import type { ImageAttachmentRef } from '@deepseek-ai/dsh-attachment'
 import {
-  ReasoningEffortId, createUserMessage, freezeMessage,
+  ReasoningEffortId, boundContextSummary, createUserMessage, freezeMessage,
 } from '@deepseek-ai/dsh-llm'
 import type { MessageSource } from '@deepseek-ai/dsh-llm'
 import { SessionLogOffset, SessionSeq } from '@deepseek-ai/dsh-session'
@@ -36,6 +36,8 @@ import type {
   SessionCreateValue,
   SessionForkRequest,
   SessionForkValue,
+  SessionJobKillRequest,
+  SessionJobKillValue,
   SessionPromptRequest,
   SessionPromptValue,
   SessionRenameRequest,
@@ -445,6 +447,56 @@ export class SessionCommandController {
     }
     agent.cancel({ kind: 'user' }, { keepInbox: true })
     return { accepted: true }
+  }
+
+  /**
+   * Stop one live background job visible in the addressed Session. Job
+   * ownership is fenced by the registry's own session-id check, so a
+   * subagent Session's live child Agent is a valid caller for the jobs it
+   * owns — no separate parent-addressed route is required.
+   * @param request - Session and registry-issued job identity.
+   * @returns the registry outcome for the kill request.
+   */
+  killJob(request: SessionJobKillRequest): SessionJobKillValue {
+    const agent = this.ctx.agents.get(request.sessionId)
+    if (agent === undefined) {
+      throw new RemoteError(
+        'session/not-found',
+        `session "${request.sessionId}" not found (not attached)`,
+        { sessionId: request.sessionId },
+      )
+    }
+    const jobs = this.ctx.get('jobs')
+    if (jobs === undefined) {
+      throw new RemoteError(
+        'gateway/internal',
+        `background jobs are not mounted in this composition (load @deepseek-ai/dsh-jobs) for session "${request.sessionId}"`,
+        {},
+      )
+    }
+    const result = jobs.kill(request.jobId, agent, 'stopped by the user')
+    if (result === 'already-finished') return { result }
+    // The kill marks the job reported, suppressing the completion notice
+    // tool-jobs would deliver; a user-initiated stop must still reach the
+    // model, so it rides the inbox with the same delivery terms: an idle
+    // owner is woken (an unclaimed notice is a stop the model never learns
+    // about), a busy owner is injected at its next step boundary.
+    const snapshot = jobs.get(request.jobId, agent)
+    const message = createUserMessage({
+      content: [{
+        type: 'text',
+        text: `background job ${snapshot.id} (${snapshot.kind}: ${snapshot.label}) was stopped by the user. Read its output with job_output.`,
+      }],
+      source: {
+        kind: 'plugin',
+        plugin: 'session-controller',
+        form: 'notice',
+        summary: boundContextSummary(`${snapshot.kind} ${snapshot.label} stopped by the user`),
+      },
+    })
+    if (agent.status === 'idle') agent.followup(message)
+    else agent.inject(message)
+    return { result }
   }
 
   private async resolveAgent(sessionId: SessionId): Promise<Agent> {

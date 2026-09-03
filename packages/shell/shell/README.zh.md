@@ -93,6 +93,8 @@ seam 本身不是执行器：每个组合只挂载一个提供方，工具即可
 
 后台进程属于 subprocess 服务而非执行器：它能在仅重载执行器后存活，并在组合拆解时被终止并 join。实现必须遵守 seam 的语义——`run` 只在基础设施失败时 reject；`start` 立即返回且不设超时，其 `done` 绝不 reject（spawn 失败以 `killed` 结算，错误进入 stderr）；`readOutput` 是消费式的，有损读取会报告 spill 文件。
 
+句柄的 `pid` 是所派生进程树根的身份（`kill()` 终止的就是它），spawn 本身失败时缺省。生产者（shell 工具）把它作为所注册 job 的 `meta.pid` 上报，因此 Web 任务列表能展示活跃行对应哪个 OS 进程。
+
 </details>
 
 -----

@@ -18,6 +18,7 @@ import { join, resolve as resolvePath } from 'node:path'
 import { ToolCallId } from '@deepseek-ai/dsh-llm'
 import SystemPrompt, { renderPrompt } from '@deepseek-ai/dsh-system-prompt'
 import ToolRuntime, { TOOL_ABORTED, TOOL_ABORTED_BEFORE_DISPATCH } from '@deepseek-ai/dsh-tools'
+import { JobId } from '@deepseek-ai/dsh-jobs'
 import LocalJobRegistry from '@deepseek-ai/dsh-jobs-local'
 import * as ToolTasks from '@deepseek-ai/dsh-tool-jobs'
 import AgentRegistry from '@deepseek-ai/dsh-agent'
@@ -746,6 +747,22 @@ describe('background execution through the job runtime', () => {
     // A later read reports the terminal outcome in the generic status line.
     const final = await callUntilText(ctx, 'job_output', { job_id: 'pwsh-1' }, '[status: completed, exit code: 0]')
     expect(final.isError).toBe(false)
+  })
+
+  it('registers the spawned tree-root pid as job meta, and none when the handle has no pid', async () => {
+    const { ctx, bash } = await setupWithTasks()
+    bash.backgroundHandler = () => ({ ...killableProcess(), pid: 4321 })
+    await call(ctx, 'pwsh', { command: 'Start-Sleep -Seconds 60', description: 'test command', run_in_background: true })
+    expect(ctx.jobs.get(JobId('pwsh-1')).meta).toEqual({ pid: 4321 })
+
+    bash.backgroundHandler = () => fakeProcess('bg-ok\n')
+    const bare = await call(ctx, 'pwsh', { command: 'Write-Output bg-ok', description: 'test command', run_in_background: true })
+    const bareId = (bare.value as { jobId: string }).jobId
+    expect(ctx.jobs.get(JobId(bareId)).meta).toBeUndefined()
+
+    // Settle the live job (no orphan at teardown).
+    await call(ctx, 'job_kill', { job_id: 'pwsh-1' })
+    await call(ctx, 'job_output', { job_id: 'pwsh-1', wait: true })
   })
 
   it('a running background job is killable through the REAL job_kill tool', async () => {

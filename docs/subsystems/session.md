@@ -777,6 +777,14 @@ inspect( sessionId: SessionId, signal?: AbortSignal, ): Promise<SessionInspectio
 @Remote('cancel') cancel(request: SessionCancelRequest): SessionCancelValue
 
 /**
+ * Stop one live background job visible in the addressed Session. The model
+ * is told through its inbox, so a user-initiated stop is never silent.
+ * @param request - Session and registry-issued job identity.
+ * @returns the registry outcome for the kill request.
+ */
+@Remote('killJob') killJob(request: SessionJobKillRequest): SessionJobKillValue
+
+/**
  * Read one cold-safe, message-aligned Session history page.
  * @param request - durable address, backward cursor, and page budget.
  * @param signal - cancellation for persistence reads.

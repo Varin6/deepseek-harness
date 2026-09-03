@@ -636,6 +636,29 @@ describe('rename', () => {
   })
 })
 
+describe('killJob', () => {
+  it('returns the registry outcome untouched and leaves no promptError', async () => {
+    const { api, session } = makeSession()
+    api.onKillJob = () => Promise.resolve(ok({ result: 'requested' }))
+    const result = await session.killJob('bash-1')
+    expect(result).toEqual({ ok: true, value: { result: 'requested' } })
+    expect(api.callsOf('session.killJob')).toMatchObject([
+      { sessionId: SID, jobId: expect.any(String) as unknown as string },
+    ])
+    expect(session.getSnapshot().promptError).toBeNull()
+  })
+
+  it('killJob business error also lands op=stop promptError', async () => {
+    const { api, session } = makeSession()
+    api.onKillJob = () => Promise.resolve(
+      err(new RemoteError('gateway/internal', 'job bash-1 belongs to another session', {})),
+    )
+    const result = await session.killJob('bash-1')
+    expect(result.ok).toBe(false)
+    expect(session.getSnapshot().promptError).toMatchObject({ op: 'stop', error: { code: 'gateway/internal' } })
+  })
+})
+
 describe('remaining branches', () => {
   it('propagates a non-Remote throw raised while prompting', async () => {
     const { api, session } = makeSession()

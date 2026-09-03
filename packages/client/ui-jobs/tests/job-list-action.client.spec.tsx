@@ -35,7 +35,10 @@ function job(over: Partial<JobView> = {}): JobView {
   }
 }
 
-function props(jobs: readonly JobView[] | undefined): JobListActionProps {
+function props(
+  jobs: readonly JobView[] | undefined,
+  killJob?: JobListActionProps['killJob'],
+): JobListActionProps {
   const state = {
     ids: [SESSION],
     byId: {},
@@ -48,7 +51,12 @@ function props(jobs: readonly JobView[] | undefined): JobListActionProps {
   function useSessions<T>(select: (snapshot: SessionListState) => T): T {
     return select(state)
   }
-  return { sessionId: SESSION, useSessions, t } as unknown as JobListActionProps
+  return {
+    sessionId: SESSION,
+    useSessions,
+    t,
+    ...killJob === undefined ? {} : { killJob },
+  } as unknown as JobListActionProps
 }
 
 /**
@@ -212,6 +220,74 @@ describe('JobListAction dismissal', () => {
 
     fireEvent.pointerDown(document.body)
     expect(trigger.getAttribute('aria-expanded')).toBe('false')
+  })
+})
+
+describe('JobListAction pid', () => {
+  it('shows the tree-root pid on a live row that recorded one', () => {
+    render(<JobListAction {...props([job({ meta: { pid: 4321 } })])} />)
+    fireEvent.click(screen.getByRole('button'))
+    expect(rowCells()[0]).toContain('#4321')
+  })
+
+  it('keeps the pid tooltip locale-owned', () => {
+    render(<JobListAction {...props([job({ meta: { pid: 4321 } })])} />)
+    fireEvent.click(screen.getByRole('button'))
+    const chip = screen.getByText('#4321')
+    expect(chip.getAttribute('title')).toBe(zh['pid.label'].replace('{pid}', '4321'))
+  })
+
+  it('never shows a pid for a settled row or a row that recorded none', () => {
+    render(<JobListAction {...props([
+      job({ id: 'bash-2' as JobView['id'], label: 'done', status: 'completed', startedAt: START, finishedAt: START + 1_000, meta: { pid: 7 } }),
+      job({ id: 'bash-3' as JobView['id'], label: 'bare', startedAt: START + 1_000 }),
+    ])} />)
+    fireEvent.click(screen.getByRole('button'))
+    expect(screen.queryByText('#7')).toBeNull()
+    // The bare live row (live rows sort first) keeps its four cells: kind,
+    // label, status, duration — no pid and no stop text of its own.
+    expect(rowCells()[0]).toEqual(['bash', 'bare', '运行中', '0秒'])
+  })
+
+  it('ignores a meta.pid that is not a number', () => {
+    render(<JobListAction {...props([job({ meta: { pid: '4321' } })])} />)
+    fireEvent.click(screen.getByRole('button'))
+    expect(screen.queryByText('#4321')).toBeNull()
+  })
+})
+
+describe('JobListAction stop', () => {
+  it('stops the live job the button addresses', () => {
+    const killJob = vi.fn()
+    render(<JobListAction {...props([
+      job({ id: 'bash-1' as JobView['id'], label: 'keep' }),
+      job({ id: 'bash-2' as JobView['id'], label: 'stop me' }),
+    ], killJob)} />)
+    fireEvent.click(screen.getByRole('button'))
+    const stops = screen.getAllByRole('button', { name: zh['kill.label'] })
+    fireEvent.click(stops[1]!)
+    expect(killJob).toHaveBeenCalledTimes(1)
+    expect(killJob).toHaveBeenCalledWith('bash-2')
+  })
+
+  it('disables the stop while the job is already stopping', () => {
+    render(<JobListAction {...props([job({ status: 'stopping' })])} />)
+    fireEvent.click(screen.getByRole('button'))
+    const stop = screen.getByRole('button', { name: zh['kill.label'] })
+    expect(stop.hasAttribute('disabled')).toBe(true)
+  })
+
+  it('disables the stop when no stop callback is injected', () => {
+    render(<JobListAction {...props([job()], undefined)} />)
+    fireEvent.click(screen.getByRole('button'))
+    const stop = screen.getByRole('button', { name: zh['kill.label'] })
+    expect(stop.hasAttribute('disabled')).toBe(true)
+  })
+
+  it('renders no stop for a settled row', () => {
+    render(<JobListAction {...props([job({ status: 'completed', finishedAt: START + 1_000 })])} />)
+    fireEvent.click(screen.getByRole('button'))
+    expect(screen.queryByRole('button', { name: zh['kill.label'] })).toBeNull()
   })
 })
 

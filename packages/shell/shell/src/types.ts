@@ -161,6 +161,11 @@ export interface ShellProcessRead {
 export interface ShellProcess {
   /** Process lifecycle state (settled exactly once). */
   status: ShellProcessStatus
+  /**
+   * Process id of the spawned tree root — the identity `kill()` terminates —
+   * absent when the spawn itself failed.
+   */
+  readonly pid?: number
   /** Exit code once finished (null = killed by signal / still running). */
   exitCode: number | null
   /** Terminating signal name, when signal-killed. */

@@ -48,11 +48,25 @@ Session 对象还承载本地提交回显：`session.beginSubmission` 在调用�
 <a id="model-experience"></a>
 ## 模型体验
 
-无，因为被调用的 Agent 命令拥有任何模型可见效果。
+### 后台任务停止通告
+
+#### 模型看到的内容
+
+人类通过 `killJob` 停止任务时，一条插件来源的 `form: 'notice'` 用户消息被投递到拥有者 Agent 的 inbox——空闲的拥有者被唤醒，繁忙的拥有者在下一个步边界注入——同时 kill 把任务标为已上报，抑制 `dsh-tool-jobs` 的完成通告，因此模型只看到这次停止。`<id>`、`<kind>` 与 `<label>` 分别是注册表签发的任务 id 与任务的 kind、label；本包其余命令均不携带模型可见效果。
+
+##### 停止通告
+
+```markdown
+background job <id> (<kind>: <label>) was stopped by the user. Read its output with job_output.
+```
+
+#### Token 影响
+
+每次人类停止追加一条短小的用户消息；请求的其他内容不变。
 
 #### KV Cache 影响
 
-无直接影响；模型请求仍由 Agent 和 LLM 包拥有。
+仅追加；通告跟随可复用的请求前缀，不会使现有 KV cache 条目失效。
 
 ## 已知限制与延期工作
 

@@ -137,6 +137,15 @@ export class FixtureSession implements SessionFace {
   }
 
   /**
+   * Fail-loud stub; supply `killJob` on the fixture's session face to exercise it.
+   * @param _jobId - registry-issued job identity.
+   * @returns never — always throws.
+   */
+  killJob(_jobId: string): never {
+    throw new Error(`test session "${this.sessionId}": killJob is not stubbed — supply it on the fixture's session face`)
+  }
+
+  /**
    * Fail-loud stub; supply `command` on the fixture's session face to exercise it.
    * @returns never — always throws.
    */

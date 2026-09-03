@@ -48,11 +48,25 @@ The generated [configuration catalog](../../../docs/config-catalog.md#deepseek-a
 <a id="model-experience"></a>
 ## Model Experience
 
-None, as invoked Agent commands own any model-visible effect.
+### Background job stop notice
+
+#### What the model sees
+
+A human stop through `killJob` delivers one plugin-sourced `form: 'notice'` user message into the owner Agent's inbox — an idle owner is woken, a busy owner is injected at its next step boundary — and marks the job reported, suppressing the `dsh-tool-jobs` completion notice, so the model sees the stop and nothing else. `<id>`, `<kind>`, and `<label>` are the registry-issued job id and the job's kind and label; no other command here carries a model-visible effect.
+
+##### Stop notice
+
+```markdown
+background job <id> (<kind>: <label>) was stopped by the user. Read its output with job_output.
+```
+
+#### Token effect
+
+One short appended user message per human stop; no other request content changes.
 
 #### KV Cache effect
 
-No direct effect; model requests remain owned by the Agent and LLM packages.
+Append-only; the notice follows a reusable request prefix and does not invalidate existing KV-cache entries.
 
 ## Known Limitations and Deferred Work
 

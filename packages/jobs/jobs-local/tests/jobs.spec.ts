@@ -7,6 +7,7 @@ import { bindScopeParent, createScope, scopeOf } from '@deepseek-ai/dsh-scope'
 import type { ScopeKey } from '@deepseek-ai/dsh-scope'
 import { JobId } from '@deepseek-ai/dsh-jobs'
 import type { JobHooks, JobKind, JobOutcome, JobSnapshot, JobStart } from '@deepseek-ai/dsh-jobs'
+import type { JsonValue } from '@deepseek-ai/dsh-util-values'
 import LocalJobRegistry, { type Config as JobsConfig } from '@deepseek-ai/dsh-jobs-local'
 
 declare module '@deepseek-ai/dsh-jobs' {
@@ -296,6 +297,31 @@ describe('LocalJobRegistry reads and settlement', () => {
       text: 'delta', snapshot: { outputLimitBytes: 64 },
     })
     expect(ctx.jobs.get(id)).toMatchObject({ outputLimitBytes: 64 })
+  })
+
+  it('carries producer-supplied meta into every snapshot as a fresh copy', async () => {
+    const ctx = await harness()
+    const p = producer({ meta: { pid: 4321 } })
+    const id = ctx.jobs.start(p.spec)
+
+    const first = ctx.jobs.get(id)
+    expect(first.meta).toEqual({ pid: 4321 })
+    // Each snapshot hands out its own record: mutation cannot leak across reads.
+    if (first.meta === undefined) throw new Error('expected meta on the first snapshot')
+    ;(first.meta as Record<string, JsonValue>).pid = 1
+    expect(ctx.jobs.get(id).meta).toEqual({ pid: 4321 })
+    // Meta survives settlement, still fresh.
+    p.settle({ status: 'completed', detail: 'exit code: 0' })
+    await tick()
+    expect(ctx.jobs.get(id).meta).toEqual({ pid: 4321 })
+  })
+
+  it('omits meta from snapshots when the producer supplied none', async () => {
+    const ctx = await harness()
+    const p = producer()
+    const id = ctx.jobs.start(p.spec)
+    expect('meta' in ctx.jobs.get(id)).toBe(false)
+    expect(ctx.jobs.list()[0]).not.toHaveProperty('meta')
   })
 
   it('final-output kinds read empty while live, the outcome output idempotently once settled', async () => {

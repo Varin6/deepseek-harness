@@ -13,6 +13,7 @@ import type { Agent } from '@deepseek-ai/dsh-agent'
 import { turnBoundaryProjectionDefinition } from '@deepseek-ai/dsh-agent-loop'
 import SessionStore, { SessionId, SessionLogOffset, SessionSeq } from '@deepseek-ai/dsh-session'
 import JsonlSessionPersistence from '@deepseek-ai/dsh-session-persistence-jsonl'
+import { JobId } from '@deepseek-ai/dsh-jobs'
 import LocalJobRegistry from '@deepseek-ai/dsh-jobs-local'
 import * as ToolTasks from '@deepseek-ai/dsh-tool-jobs'
 import ApprovalService from '@deepseek-ai/dsh-user-approval'
@@ -481,6 +482,18 @@ describe('background execution through the job runtime', () => {
     // A later read reports the terminal outcome in the generic status line.
     const final = await callUntilText(ctx, 'job_output', { job_id: 'bash-1' }, '[status: completed, exit code: 0]')
     expect(final.isError).toBe(false)
+  })
+
+  it('registers the spawned tree-root pid as job meta', async () => {
+    const ctx = await setupWithTasks()
+    await call(ctx, 'bash', { command: 'sleep 60', description: 'test command', run_in_background: true })
+    const meta = ctx.jobs.get(JobId('bash-1')).meta
+    expect(meta?.pid).toBeDefined()
+    expect(typeof meta?.pid).toBe('number')
+    expect(meta?.pid as number).toBeGreaterThan(0)
+    // Settle the live job (no orphan at teardown).
+    await call(ctx, 'job_kill', { job_id: 'bash-1' })
+    await call(ctx, 'job_output', { job_id: 'bash-1', wait: true })
   })
 
   it('a running background job is killable through the REAL job_kill tool', async () => {

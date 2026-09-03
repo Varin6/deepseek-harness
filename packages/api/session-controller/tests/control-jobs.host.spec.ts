@@ -6,6 +6,7 @@ import LocalJobRegistry from '@deepseek-ai/dsh-jobs-local'
 import SessionStore, { SessionId } from '@deepseek-ai/dsh-session'
 import type { Session } from '@deepseek-ai/dsh-session'
 import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
+import type { JsonValue } from '@deepseek-ai/dsh-util-values'
 import { describe, expect, it } from 'vitest'
 import { SessionControlController } from '../src/control.ts'
 import type { SessionControlFrame } from '../src/types.ts'
@@ -13,7 +14,7 @@ import type { SessionControlFrame } from '../src/types.ts'
 type BaselineFrame = Extract<SessionControlFrame, { type: 'baseline' }>
 type JobFrame = Extract<SessionControlFrame, { type: 'jobs' }>
 
-function producer(label = 'sleep 60') {
+function producer(label = 'sleep 60', meta?: Readonly<Record<string, JsonValue>>) {
   let settle!: (outcome: JobOutcome) => void
   const reads = { count: 0 }
   const spec = {
@@ -23,6 +24,7 @@ function producer(label = 'sleep 60') {
       cancel: () => {},
       done: new Promise<JobOutcome>((resolve) => { settle = resolve }),
       readOutput: () => { reads.count += 1; return 'stolen output' },
+      ...meta === undefined ? {} : { meta },
     }),
   }
   return { spec, reads, settle: (outcome: JobOutcome) => { settle(outcome) } }
@@ -150,16 +152,18 @@ describe('Session control jobs updates', () => {
     const { ctx, agent, control } = await harness(true)
     const abort = new AbortController()
     const collected = collectJobs(control.control(abort.signal), 1, abort)
-    ctx.jobs.start({ ...producer().spec, owner: agent, outputLimitBytes: 1_024 })
+    ctx.jobs.start({ ...producer(undefined, { pid: 4321 }).spec, owner: agent, outputLimitBytes: 1_024 })
 
     const [frame] = await collected
     expect(Object.keys(frame?.jobs[0] ?? {}).sort()).toEqual([
       'id',
       'kind',
       'label',
+      'meta',
       'startedAt',
       'status',
     ])
+    expect(frame?.jobs[0]?.meta).toEqual({ pid: 4321 })
   })
 
   it('fans an unowned change out to every attached session', async () => {

@@ -81,7 +81,7 @@ kind: "package-reference"
 
 ### 服务操作
 
-每个操作都是已注册任务之上的薄投影：`get` 与 `list` 返回非消费式快照，`read` 推进唯一的流游标，`kill` 在改变状态前调用生产方取消，`wait` 阻塞至超时，`start()` 在调用生产方 `run()` 一次之前预检访问、校验与准入，同时拒绝任何没有已附加控制器服务的所有者；监听器按所有者粒度观察终止记录与可见集变化，`attachController` 把控制器可用性限定在其 effect 生命周期内。确切签名与行为见 [`src/index.ts`](src/index.ts) 的 JSDoc 与生成的 [`ctx.jobs` cordis 接口面](../../../docs/subsystems/jobs.zh.md)。
+每个操作都是已注册任务之上的薄投影：`get` 与 `list` 返回非消费式快照，`read` 推进唯一的流游标，`kill` 在改变状态前调用生产方取消，`wait` 阻塞至超时，`start()` 在调用生产方 `run()` 一次之前预检访问、校验与准入，同时拒绝任何没有已附加控制器服务的所有者；监听器按所有者粒度观察终止记录与可见集变化，`attachController` 把控制器可用性限定在其 effect 生命周期内。生产者也可通过 `hooks.meta` 声明 JSON 安全的事实；注册表为每个快照复制一份全新的 `meta` 记录（仅在提供时存在，从不在原地变更），shell 工具正是借此把所派生进程的 `meta.pid` 暴露给 Web 任务列表。确切签名与行为见 [`src/index.ts`](src/index.ts) 的 JSDoc 与生成的 [`ctx.jobs` cordis 接口面](../../../docs/subsystems/jobs.zh.md)。
 
 </details>
 

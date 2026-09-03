@@ -93,6 +93,8 @@ The package is one role of a standard capability seam: the Service Definition th
 
 A background process belongs to the subprocess service, not to the executor: it survives an executor-only reload and is killed and joined when the composition tears down. Implementations must honor the seam's semantics — `run` rejects only for infrastructure failures; `start` returns immediately with no timeout and its `done` never rejects (spawn failures settle as `killed` with the error on stderr); `readOutput` is consuming and lossy reads report spill files.
 
+The handle's `pid` is the spawned tree root — the identity the subprocess service's `kill()` terminates — absent when the spawn itself failed. Producers (the shell tools) forward it as `meta.pid` on the job they register, so the Web job list can show which OS process a live row is.
+
 </details>
 
 -----

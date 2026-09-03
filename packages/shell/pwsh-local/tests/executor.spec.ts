@@ -443,6 +443,8 @@ describe.skipIf(!hasPwsh)('PwshLocalExecutor.start (background process handles)'
     await expect(proc.done).resolves.toBeUndefined()
     expect(proc.status).toBe('killed')
     expect(proc.readOutput().delta).toContain('spawn failed:')
+    // No tree was born, so the handle carries no pid.
+    expect(proc.pid).toBeUndefined()
   })
 })
 
@@ -459,6 +461,8 @@ describe.skipIf(!hasPwsh)('process lifecycle ownership (the subprocess service, 
     const proc = bash.start(bash.resolve({ command: 'Write-Output $PID; Start-Sleep -Seconds 60' }))
     const pid = Number((await readUntil(proc, '\n')).trim())
     expect(Number.isInteger(pid) && pid > 0).toBe(true)
+    // $PID is the tree-root pwsh itself, the identity kill() terminates.
+    expect(proc.pid).toBe(pid)
 
     // Executor reload/disposal leaves background work running — the
     // handle stays live and readable, mirroring the job runtime's

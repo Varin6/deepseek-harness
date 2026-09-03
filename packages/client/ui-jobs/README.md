@@ -9,7 +9,7 @@ English | [中文](README.zh.md)
 
 ## Summary
 
-This package renders the background-job surface of the Web GUI: a session-header action that opens a popover listing the jobs this session can see. It reads host-computed registry state through the runtime's `jobsBySession` mirror and issues no RPC of its own. The trigger appears only when the session has at least one job, with a badge counting running and stopping jobs; settled rows stay visible and de-emphasized until the registry drops them. The model's own view of the same jobs belongs to `dsh-tool-jobs`; this package is a read-only projection for the human.
+This package renders the background-job surface of the Web GUI: a session-header action that opens a popover listing the jobs this session can see. It reads host-computed registry state through the runtime's `jobsBySession` mirror. The trigger appears only when the session has at least one job, with a badge counting running and stopping jobs; settled rows stay visible and de-emphasized until the registry drops them. A live row also shows the spawned process's tree-root pid when the producer recorded one, and a stop button that stops the job through the session face — the Host command tells the session's model, so a user-initiated stop is never silent. The model's own view of the same jobs belongs to `dsh-tool-jobs`.
 
 ## Table of Contents
 
@@ -25,7 +25,7 @@ This package renders the background-job surface of the Web GUI: a session-header
 <a id="use-this-package"></a>
 ## Use this package
 
-Mount this plugin alongside the runtime; the job action then appears in the session header whenever the session has at least one job. A click opens the popover: live rows first by start time, then settled rows by finish time, each showing the producer kind, label, status, and an elapsed duration that ticks once per second while live and freezes at completion.
+Mount this plugin alongside the runtime; the job action then appears in the session header whenever the session has at least one job. A click opens the popover: live rows first by start time, then settled rows by finish time, each showing the producer kind, label, status, and an elapsed duration that ticks once per second while live and freezes at completion. A live row shows the spawned process's tree-root pid as a `#<pid>` chip when the producer recorded it, and a stop button that stops the job — disabled while the job is already stopping or when the session face is unreachable.
 
 ### Dismissal and limits
 
@@ -39,7 +39,7 @@ Escape closes the list and returns focus to the trigger, as does a pointer press
 <details>
 <summary>Implementation internals — click to expand</summary>
 
-The package contributes one entry to `conversation.session.header.actions` (`JobListAction`), and the data arrives entirely through the `jobsBySession` list mirror that the Session Controller binding folds from `session/jobs` frames — no RPC, and no state beyond popover visibility. The badge counts `running` plus `stopping` and is omitted at zero. Rows order live first by `startedAt` ascending, then settled by `finishedAt` descending, with a same-millisecond tie broken on start order; a settled row missing `finishedAt` reads as zero rather than as a negative figure, and a duration past an hour stays in hours. Settled rows stay visible because a failed job's `detail` is the only place its failure is legible. The behavior is specified by the [Web background-job display note](../../../.agents/notes/implemented/feature/2026-08-08-web-background-job-display.md).
+The package contributes one entry to `conversation.session.header.actions` (`JobListAction`), and the row data arrives entirely through the `jobsBySession` list mirror that the Session Controller binding folds from `session/jobs` frames — no state beyond popover visibility. The badge counts `running` plus `stopping` and is omitted at zero. Rows order live first by `startedAt` ascending, then settled by `finishedAt` descending, with a same-millisecond tie broken on start order; a settled row missing `finishedAt` reads as zero rather than as a negative figure, and a duration past an hour stays in hours. Settled rows stay visible because a failed job's `detail` is the only place its failure is legible. The pid chip reads the wire row's `meta.pid` (a number or nothing), and the stop button calls the entry's `killJob` inject member, which apply wires to `ctx.sessions`: the addressed session's face issues the `killJob` RPC, whose Host command requests the registry kill and notifies the owning model — a wake when it is idle, a step-boundary injection when it is busy — because `kill()` marks terminal delivery reported, suppressing the completion notice tool-jobs would send. A stop failure publishes through the session's `promptError`; the row itself updates from the jobs control frame. The behavior is specified by the [Web background-job display note](../../../.agents/notes/implemented/feature/2026-08-08-web-background-job-display.md).
 
 </details>
 
@@ -60,7 +60,7 @@ Read these pages when the job surface is not enough. They move from the browser 
 <a id="model-experience"></a>
 ## Model Experience
 
-None, as this package renders host-computed registry state for a human and touches no prompt, message, schema, stream, or tool result.
+None, as this package renders host-computed registry state for a human and touches no prompt, message, schema, stream, or tool result; the stop button's model notice belongs to the Session Controller's [model experience](../../api/session-controller/README.md).
 
 #### KV Cache effect
 
@@ -73,7 +73,7 @@ None; the package never assembles or sends provider requests.
 
 These limits define the current job list. They are current package constraints, not a general job-management comparison or a task backlog.
 
-- **Rows are read-only** — a job's streamed output and a human-initiated cancellation are separate phases. Cancellation additionally owes a model-facing decision the seam does not answer: `kill()` marks terminal delivery reported, so an interrupt written against the current contract would leave the model believing its job is still running.
+- **The stop verb is a registry kill, not a turn control** — the row's stop button asks the registry to kill the job and nothing else: it does not cancel the model's active turn, does not read the job's output, and is absent on settled rows, where nothing is left to kill. The model learns of the stop from the Session Controller's notice (a wake when idle, a step-boundary injection when busy), not from this package.
 - **The list is not the registry's own set** — it shows what one session can see through the wire view, so a job owned by another session never appears here, and a process restart empties the list while the transcript keeps the `run_in_background` cards that started those jobs. An unowned job (one started without a live `Agent`) reaches every session's list, matching what `list(caller)` reports to every caller.
 
 <a id="dev-note"></a>
@@ -86,4 +86,4 @@ None.
 
 </details>
 
-**Runtime invariant:** No companion is published. This package is a read-only projection of the `jobsBySession` mirror onto one header slot entry. It emits no cordis events, owns no cross-plugin mutable state, and its single slot registration proves disposal through the HMR-safety spec.
+**Runtime invariant:** No companion is published. This package projects the `jobsBySession` mirror onto one header slot entry read-only; the stop button routes through the session face rather than holding its own. It emits no cordis events, owns no cross-plugin mutable state, and its slot registration proves disposal through the HMR-safety spec.
